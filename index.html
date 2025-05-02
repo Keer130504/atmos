@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Air Pollution Detection with Live Charts</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: url("https://www.wallpaperflare.com/static/309/249/266/landscape-mist-pine-trees-pine-wallpaper.jpg") no-repeat center center/cover;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 3rem;
+      color: #0d2d12;
+      margin: 1rem 0;
+      text-decoration: underline overline;
+      text-shadow: 2px 2px 4px rgba(22, 87, 66, 0.9);
+    }
+
+    .main-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      padding-left: 50rem;
+      padding-top: 10rem;
+    }
+
+    .aqi-container {
+      flex: 1 1 300px;
+      margin: 1rem auto;
+      color: azure;
+      font-size: 1.4rem;
+      font-weight: bold;
+    }
+
+    .chart-box {
+      background-color: rgba(250, 245, 245, 0.866); /* White with low opacity */
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+      margin-right:800px;
+    }
+
+    .sidebar {
+      width: 100%;
+      max-width: 300px;
+      background-color: rgba(53, 129, 124, 0.7);
+      padding: 1rem;
+      position: fixed;
+      right: 0;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      color: white;
+    }
+
+    .sidebar .link-item {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .sidebar .link-item a {
+      text-decoration: none;
+      color: #f0f0f5;
+    }
+    
+  </style>
+  
+</head>
+<body>
+
+<h1>AIR POLLUTION DETECTION</h1>
+
+<div style="background-color: rgba(0, 0, 0, 0.6); color: white; padding: 100px; border-radius: 10px; width: fit-content; margin: 20px auto; font-family: Arial, sans-serif; box-shadow: 0 0 10px rgba(0,0,0,0.5); font-size:28px;">
+  <h2>Live Air Quality Data</h2>
+  <p>🌡 Temperature: <span id="temp">--</span> °C</p>
+  <p>💧 Humidity: <span id="hum">--</span> %</p>
+  <p>🌫 Gas Level: <span id="gas">--</span> ppm</p>
+</div>
+
+<!-- Chart.js Container -->
+<div class="main-container">
+  <div class="aqi-container chart-box">
+    <canvas id="tempChart" width="400" height="200"></canvas>
+  </div>
+  <div class="aqi-container chart-box">
+    <canvas id="humChart" width="400" height="200"></canvas>
+  </div>
+  <div class="aqi-container chart-box">
+    <canvas id="gasChart" width="400" height="200"></canvas>
+  </div>
+</div>
+
+<!-- Sidebar with additional info -->
+<div class="sidebar">
+  <div class="link-item">
+    <a href="https://www.nrdc.org/stories/air-pollution-everything-you-need-know" target="_blank">
+      <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTBuJUWVk_fA_1eenfFrf-2G2vDLM3-ah4Vew&s">
+      <div class="link-caption"><strong>JIST OF AIR POLLUTION</strong></div>
+    </a>
+  </div>
+  <div class="link-item">
+    <a href="https://www.metropolisindia.com/blog/preventive-healthcare/air-pollution-diseases-you-need-to-be-aware-of" target="_blank">
+      <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRQofztpGW1nBPp3XcOhFKdAPVhBqQ-_EvAxA&s">
+      <div class="link-caption"><strong>DISEASES CAUSED</strong></div>
+    </a>
+  </div>
+  <div class="link-item">
+    <a href="https://www.aqi.in/blog/en-in/10-best-ways-to-reduce-air-pollution/" target="_blank">
+      <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQvygoc0pejgcAjVzSI0QOwFtaHUtf5tXp3WQ&s">
+      <div class="link-caption"><strong>WAYS TO REDUCE AIR POLLUTION</strong></div>
+    </a>
+  </div>
+  <div class="link-item">
+    <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3532603/" target="_blank">
+      <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQjzkXCOoNPySpCo8c_rwgsPLJ2To-ebJ_6Wg&s">
+      <div class="link-caption"><strong>PRECAUTIONS</strong></div>
+    </a>
+  </div>
+</div>
+
+<script>
+  const channelID = "2944658";  // Your ThingSpeak Channel ID
+  const apiKey = "K0P15I76ADEPC5B5";  // Your ThingSpeak API Key
+  const url = `https://api.thingspeak.com/channels/${channelID}/feeds/last.json?api_key=${apiKey}`;
+
+  let tempData = [];
+  let humData = [];
+  let gasData = [];
+  let timeLabels = [];
+
+  // Create charts
+  const tempChart = new Chart(document.getElementById('tempChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: timeLabels,
+      datasets: [{
+        label: 'Temperature (°C)',
+        data: tempData,
+        borderColor: 'rgb(255, 99, 132)',
+        fill: false
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        x: { title: { display: true, text: 'Time' } },
+        y: { title: { display: true, text: 'Temperature (°C)' } }
+      }
+    }
+  });
+
+  const humChart = new Chart(document.getElementById('humChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: timeLabels,
+      datasets: [{
+        label: 'Humidity (%)',
+        data: humData,
+        borderColor: 'rgb(54, 162, 235)',
+        fill: false
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        x: { title: { display: true, text: 'Time' } },
+        y: { title: { display: true, text: 'Humidity (%)' } }
+      }
+    }
+  });
+
+  const gasChart = new Chart(document.getElementById('gasChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: timeLabels,
+      datasets: [{
+        label: 'Gas Level (ppm)',
+        data: gasData,
+        borderColor: 'rgb(75, 192, 192)',
+        fill: false
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        x: { title: { display: true, text: 'Time' } },
+        y: { title: { display: true, text: 'Gas Level (ppm)' } }
+      }
+    }
+  });
+
+  // Function to fetch data from ThingSpeak
+  async function fetchDataFromThingSpeak() {
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+
+      // Update the live data on the page
+      document.getElementById("temp").innerText = data.field1 || "--";
+      document.getElementById("hum").innerText = data.field2 || "--";
+      document.getElementById("gas").innerText = data.field3 || "--";
+
+      // Store new data and update charts
+      tempData.push(data.field1);
+      humData.push(data.field2);
+      gasData.push(data.field3);
+      timeLabels.push(new Date().toLocaleTimeString());
+
+      // Limit the data points to 10 for better performance
+      if (tempData.length > 10) {
+        tempData.shift();
+        humData.shift();
+        gasData.shift();
+        timeLabels.shift();
+      }
+
+      // Update the charts
+      tempChart.update();
+      humChart.update();
+      gasChart.update();
+
+    } catch (error) {
+      console.error("Error fetching data from ThingSpeak:", error);
+    }
+  }
+
+  // Fetch data every 5 seconds
+  setInterval(fetchDataFromThingSpeak, 2000);
+  fetchDataFromThingSpeak();  // Initial fetch
+</script>
+<!-- AQI Display Section -->
+<div id="aqi-container" style="
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 50px;
+  background-color: rgba(0,0,0,0.5);
+  padding-top: 10px;
+  border-radius: 10px;
+  color: white;
+  font-size: 30px;
+  text-align: center;
+  margin-bottom: 0px;
+  margin-top:100px;
+">
+  <label for="city" style="font-weight: bold;">Select a City:</label><br />
+  <select id="city" onchange="getAQI()" style="
+    padding: 8px;
+    font-size: 30px;
+    margin-top: 10px;
+    border-radius: 5px;
+  ">
+    <option value="Bengaluru">Karnataka</option>
+    <option value="Delhi">Delhi</option>
+    <option value="Kolkata">Kolkata</option>
+    <option value="Kannur">Kerala</option>
+    <option value="Jaipur">Rajasthan</option>
+    <option value="Hyderabad">Hyderabad</option>
+    <option value="Ahmedabad">Ahmedabad</option>
+    <option value="Pondicherry">Pondicherry</option>
+  </select>
+
+  <div id="aqi-display" style="margin-top: 15px;">AQI will be shown here...</div>
+</div>
+
+<script>
+  const token = '820ae8ebf6f98831f78034544e2d8d03da7727ef'; // WAQI Token
+
+  async function getAQI() {
+    const city = document.getElementById("city").value;
+    const url = `https://api.waqi.info/feed/${city}/?token=${token}`;
+
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.status === "ok") {
+        const aqi = data.data.aqi;
+        document.getElementById("aqi-display").innerText = `AQI in ${city.charAt(0).toUpperCase() + city.slice(1)}: ${aqi}`;
+      } else {
+        document.getElementById("aqi-display").innerText = "AQI data not available.";
+      }
+    } catch (error) {
+      console.error("Error fetching AQI:", error);
+      document.getElementById("aqi-display").innerText = "Failed to load AQI data.";
+    }
+  }
+
+  // Load AQI on page load
+  window.onload = getAQI;
+</script>
+
+</body>
+</html>
